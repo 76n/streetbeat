@@ -1,0 +1,3 @@
+class GhostModel {
+  const GhostModel();
+}

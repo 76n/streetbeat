@@ -1,0 +1,3 @@
+class RunModel {
+  const RunModel();
+}

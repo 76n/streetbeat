@@ -1,0 +1,3 @@
+class CoinModel {
+  const CoinModel();
+}

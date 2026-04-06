@@ -1,0 +1,3 @@
+class GateModel {
+  const GateModel();
+}
