@@ -4,6 +4,9 @@
 /google-services.json
 firebase-service-account.json
 google-service-account.json
+android/app/google-service-account.json
+android/app/firebase-service-account.json
+secrets/
 
 # Miscellaneous
 *.class
