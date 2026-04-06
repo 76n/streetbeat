@@ -2,6 +2,8 @@
 **/*-firebase-adminsdk-*.json
 **/google-services.json.local
 /google-services.json
+firebase-service-account.json
+google-service-account.json
 
 # Miscellaneous
 *.class

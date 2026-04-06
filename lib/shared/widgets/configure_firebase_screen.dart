@@ -3,9 +3,14 @@ import 'package:flutter/material.dart';
 import '../../core/theme/colors.dart';
 
 class ConfigureFirebaseScreen extends StatelessWidget {
-  const ConfigureFirebaseScreen({super.key, this.details});
+  const ConfigureFirebaseScreen({
+    super.key,
+    this.details,
+    this.onRetry,
+  });
 
   final String? details;
+  final Future<void> Function()? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +33,16 @@ class ConfigureFirebaseScreen extends StatelessWidget {
             fontSize: 22,
           ),
         ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: AppColors.textPrimary,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
       ),
       home: Scaffold(
         body: SafeArea(
@@ -36,8 +51,11 @@ class ConfigureFirebaseScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.cloud_off_outlined,
-                    size: 48, color: AppColors.primary),
+                const Icon(
+                  Icons.cloud_off_outlined,
+                  size: 48,
+                  color: AppColors.primary,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'Configure Firebase',
@@ -45,20 +63,21 @@ class ConfigureFirebaseScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Firebase did not initialize. Replace the placeholder '
-                  'android/app/google-services.json with the file from your '
-                  'Firebase console (Project settings → Your apps → Android).',
+                  'Firebase did not initialize or is still using placeholder '
+                  'values. Replace android/app/google-services.json with the '
+                  'file from your Firebase console (Project settings → Your apps → Android).',
                 ),
                 const SizedBox(height: 16),
                 const Text(
                   'For iOS, add GoogleService-Info.plist under ios/Runner. '
-                  'For web, run flutterfire configure or add Firebase options '
-                  'and pass them to Firebase.initializeApp().',
+                  'For web, run flutterfire configure or pass options to '
+                  'Firebase.initializeApp().',
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Then run flutter pub get and restart the app.',
-                  style: TextStyle(color: AppColors.textSecondary),
+                Text(
+                  'After changing native config, use hot restart (not just '
+                  'hot reload). In debug, hot reload also re-checks options.',
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 if (details != null && details!.isNotEmpty) ...[
                   const SizedBox(height: 24),
@@ -71,6 +90,12 @@ class ConfigureFirebaseScreen extends StatelessWidget {
                     ),
                   ),
                 ],
+                const Spacer(),
+                if (onRetry != null)
+                  ElevatedButton(
+                    onPressed: () => onRetry!(),
+                    child: const Text('Check again'),
+                  ),
               ],
             ),
           ),

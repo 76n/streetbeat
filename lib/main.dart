@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'app.dart';
@@ -31,32 +32,46 @@ class _StreetbeatBootstrapState extends State<_StreetbeatBootstrap> {
     _initFirebase();
   }
 
-  Future<void> _initFirebase() async {
-    try {
-      await sl<FirebaseService>().initialize();
-      if (Firebase.apps.isEmpty) {
-        setState(() {
-          _firebaseReady = false;
-          _failureDetail = 'Firebase.apps is empty after initializeApp.';
-        });
-      } else {
-        setState(() => _firebaseReady = true);
-      }
-    } on FirebaseException catch (e) {
-      setState(() {
-        _firebaseReady = false;
-        _failureDetail = '${e.code}: ${e.message}';
+  @override
+  void reassemble() {
+    super.reassemble();
+    if (kDebugMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _initFirebase();
+        }
       });
-    } catch (e, st) {
-      setState(() {
-        _firebaseReady = false;
-        _failureDetail = '$e\n$st';
-      });
-    } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
     }
+  }
+
+  Future<void> _initFirebase() async {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _failureDetail = null;
+    });
+    final service = sl<FirebaseService>();
+    final result = Firebase.apps.isEmpty
+        ? await service.initialize()
+        : await service.revalidateAfterConfigChange();
+    if (!mounted) {
+      return;
+    }
+    switch (result) {
+      case FirebaseInitResult.success:
+        _firebaseReady = true;
+        _failureDetail = null;
+      case FirebaseInitResult.placeholder:
+      case FirebaseInitResult.failed:
+        _firebaseReady = false;
+        _failureDetail = service.lastFailureMessage ??
+            'Firebase is not configured for this build.';
+    }
+    setState(() {
+      _loading = false;
+    });
   }
 
   @override
@@ -65,7 +80,10 @@ class _StreetbeatBootstrapState extends State<_StreetbeatBootstrap> {
       return const AppLoadingScreen();
     }
     if (!_firebaseReady) {
-      return ConfigureFirebaseScreen(details: _failureDetail);
+      return ConfigureFirebaseScreen(
+        details: _failureDetail,
+        onRetry: _initFirebase,
+      );
     }
     return const StreetbeatApp();
   }
