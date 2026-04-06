@@ -185,12 +185,10 @@ class _FriendsScopedBoardState extends State<_FriendsScopedBoard> {
           parent: BouncingScrollPhysics(),
         ),
         children: const [
-          SizedBox(height: 48),
+          SizedBox(height: 32),
           StreetBeatEmptyState(
             title: 'Add friends to compete',
-            message:
-                'See how you stack up on coins each week. Open the bell on the '
-                'Feed tab to find friends and send requests.',
+            message: 'Add friends to compete · Your runs will appear here',
           ),
         ],
       );
@@ -244,19 +242,42 @@ class _GlobalWeekBoard extends StatelessWidget {
         }
         final docs = snap.data!.docs;
         if (docs.isEmpty) {
-          return ListView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
-            ),
-            children: const [
-              SizedBox(height: 48),
-              StreetBeatEmptyState(
-                title: 'Weekly board is open',
-                message:
-                    'No scores for this week yet. Go for a run — your coins '
-                    'land here automatically.',
-              ),
-            ],
+          return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .doc(myUid)
+                .snapshots(),
+            builder: (context, userSnap) {
+              final m = userSnap.data?.data() ?? {};
+              final name = m['name'] as String? ?? 'You';
+              final tok = m['weeklyCoinsWeekToken'] as String? ?? '';
+              final score =
+                  tok == weekTok ? (m['weeklyCoins'] as num?)?.toInt() ?? 0 : 0;
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                children: [
+                  const SizedBox(height: 16),
+                  const StreetBeatEmptyState(
+                    title: 'Leaderboard',
+                    message:
+                        'Add friends to compete · Your runs will appear here',
+                  ),
+                  const SizedBox(height: 20),
+                  _RankRow(
+                    row: LeaderboardRow(
+                      uid: myUid,
+                      name: name,
+                      score: score,
+                      rank: 1,
+                    ),
+                    highlight: true,
+                  ),
+                ],
+              );
+            },
           );
         }
         return ListView.builder(

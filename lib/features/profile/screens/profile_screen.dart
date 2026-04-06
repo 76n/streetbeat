@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -60,9 +61,10 @@ class ProfileScreen extends StatelessWidget {
         body: BlocBuilder<AuthBloc, AuthState>(
           builder: (context, state) {
             final loading = state is AuthLoading;
+            final fbUser = FirebaseAuth.instance.currentUser;
             final uid = switch (state) {
               AuthAuthenticated u => u.user.uid,
-              _ => null,
+              _ => fbUser?.uid,
             };
             if (uid == null) {
               return const Center(child: Text('Sign in'));
@@ -85,6 +87,13 @@ class ProfileScreen extends StatelessWidget {
                 final earnedMvp = user.badges
                     .where((b) => kBadgeById.containsKey(b.id))
                     .length;
+                final displayName = user.name.isNotEmpty
+                    ? user.name
+                    : (fbUser?.displayName != null &&
+                            fbUser!.displayName!.trim().isNotEmpty)
+                        ? fbUser.displayName!.trim()
+                        : 'Runner';
+                final email = fbUser?.email?.trim() ?? '';
 
                 return CustomScrollView(
                   slivers: [
@@ -99,7 +108,7 @@ class ProfileScreen extends StatelessWidget {
                               children: [
                                 AvatarWidget(
                                   radius: 48,
-                                  name: user.name,
+                                  name: displayName,
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
@@ -108,14 +117,22 @@ class ProfileScreen extends StatelessWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        user.name.isNotEmpty
-                                            ? user.name
-                                            : 'Runner',
+                                        displayName,
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w900,
                                           fontSize: 24,
                                         ),
                                       ),
+                                      if (email.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          email,
+                                          style: const TextStyle(
+                                            color: AppColors.textSecondary,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
                                       const SizedBox(height: 4),
                                       Text(
                                         user.city.isNotEmpty
@@ -134,16 +151,19 @@ class ProfileScreen extends StatelessWidget {
                             const SizedBox(height: 20),
                             Row(
                               children: [
-                                const Text(
-                                  '🔥',
-                                  style: TextStyle(
-                                    fontSize: 28,
-                                    color: AppColors.primary,
-                                  ),
+                                Icon(
+                                  Icons.local_fire_department_rounded,
+                                  size: 30,
+                                  color: user.currentStreakWeeks > 0
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary
+                                          .withValues(alpha: 0.35),
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  '${user.currentStreakWeeks} week streak',
+                                  user.currentStreakWeeks > 0
+                                      ? '${user.currentStreakWeeks} week streak'
+                                      : '0 week streak',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w800,
                                     fontSize: 17,

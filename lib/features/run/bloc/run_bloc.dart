@@ -14,6 +14,7 @@ import '../../../shared/models/user_model.dart';
 import '../../../shared/services/badge_service.dart';
 import '../../../shared/services/ghost_service.dart';
 import '../../../shared/services/local_notification_service.dart';
+import '../../../shared/services/location_service.dart';
 import '../../../shared/services/osm_service.dart';
 import '../models/active_objective.dart';
 import '../models/coin_model.dart';
@@ -114,6 +115,8 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
 
   DateTime? _lastPhantomRollAt;
   int _lastMilestoneKm = 0;
+
+  LatLng? _playerPosAtLastCoinSpawn;
 
   RunCelebrationKind? _pendingCelebration;
 
@@ -278,6 +281,35 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
     }).length;
   }
 
+  static bool _motionAllowsCoinSpawning(MotionActivity a) =>
+      a == MotionActivity.running || a == MotionActivity.walking;
+
+  int _activeUncollectedCoins() => _coins.where((c) => !c.isCollected).length;
+
+  bool _spawnPointClear(LatLng p, {double minMeters = 20}) {
+    for (final c in _coins) {
+      if (c.isCollected) {
+        continue;
+      }
+      if (LocationUtils.distanceMeters(c.position, p) < minMeters) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool _pairwiseSpacingOk(LatLng candidate) {
+    for (final c in _coins) {
+      if (c.isCollected) {
+        continue;
+      }
+      if (LocationUtils.distanceMeters(c.position, candidate) < 15) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   int _gatesAhead(LatLng pos, double bearing) {
     return _gates.where((g) {
       if (g.isCapture || g.isMissed) {
@@ -307,16 +339,40 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
   }
 
   Future<void> _ensureCoins(
-      Emitter<RunState> emit, LatLng pos, double bearing) async {
-    var attempts = 0;
-    while (_coinsAhead(pos, bearing) < 3 && attempts < 8) {
-      attempts++;
-      if (_coins.length >= 24) {
-        break;
+    Emitter<RunState> emit,
+    LatLng pos,
+    double bearing,
+    MotionActivity activity, {
+    bool relaxSpawnDistance = false,
+  }) async {
+    if (!relaxSpawnDistance && !_motionAllowsCoinSpawning(activity)) {
+      if (!emit.isDone) {
+        _emitActive(emit);
       }
+      return;
+    }
+
+    if (!relaxSpawnDistance) {
+      if (_playerPosAtLastCoinSpawn != null &&
+          LocationUtils.distanceMeters(_playerPosAtLastCoinSpawn!, pos) < 10) {
+        if (!emit.isDone) {
+          _emitActive(emit);
+        }
+        return;
+      }
+    }
+
+    var attempts = 0;
+    while (_coinsAhead(pos, bearing) < 3 &&
+        _activeUncollectedCoins() < 5 &&
+        attempts < 8) {
+      attempts++;
       final spawn = await _osm.findValidSpawnPoint(pos, bearing, 38, 125);
       if (spawn == null) {
         break;
+      }
+      if (!_spawnPointClear(spawn) || !_pairwiseSpacingOk(spawn)) {
+        continue;
       }
       final t = rollCoinType(_rng);
       final c = CoinModel(
@@ -327,7 +383,8 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
         spawnedAt: DateTime.now(),
       );
       _coins = [..._coins, c];
-      if (_coinsAhead(pos, bearing) >= 5) {
+      _playerPosAtLastCoinSpawn = pos;
+      if (!relaxSpawnDistance) {
         break;
       }
     }
@@ -406,7 +463,14 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
     Emitter<RunState> emit,
     LatLng pos,
     double bearing,
+    MotionActivity activity,
   ) async {
+    if (!_motionAllowsCoinSpawning(activity)) {
+      return;
+    }
+    if (_activeUncollectedCoins() >= 5) {
+      return;
+    }
     final now = DateTime.now();
     if (_lastPhantomRollAt == null) {
       _lastPhantomRollAt = now;
@@ -420,7 +484,10 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
       return;
     }
     final spawn = await _osm.findValidSpawnPoint(pos, bearing, 40, 120);
-    if (spawn == null || emit.isDone) {
+    if (spawn == null ||
+        emit.isDone ||
+        !_spawnPointClear(spawn) ||
+        !_pairwiseSpacingOk(spawn)) {
       return;
     }
     final expires = now.add(const Duration(seconds: 45));
@@ -435,6 +502,7 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
         expiresAt: expires,
       ),
     ];
+    _playerPosAtLastCoinSpawn = pos;
     unawaited(_localNotifications.showPhantomGoldCoin());
     _emitActive(emit);
   }
@@ -443,14 +511,24 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
     Emitter<RunState> emit,
     LatLng pos,
     double bearing,
+    MotionActivity activity,
   ) async {
+    if (!_motionAllowsCoinSpawning(activity)) {
+      return;
+    }
+    if (_activeUncollectedCoins() >= 5) {
+      return;
+    }
     final km = (_distance / 1000).floor();
     if (km <= _lastMilestoneKm) {
       return;
     }
     _lastMilestoneKm = km;
     final spawn = await _osm.findValidSpawnPoint(pos, bearing, 48, 120);
-    if (spawn == null || emit.isDone) {
+    if (spawn == null ||
+        emit.isDone ||
+        !_spawnPointClear(spawn) ||
+        !_pairwiseSpacingOk(spawn)) {
       return;
     }
     _coins = [
@@ -463,13 +541,21 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
         spawnedAt: DateTime.now(),
       ),
     ];
+    _playerPosAtLastCoinSpawn = pos;
   }
 
   Future<void> _maybePersonalBestCoin(
     Emitter<RunState> emit,
     LatLng pos,
     double bearing,
+    MotionActivity activity,
   ) async {
+    if (!_motionAllowsCoinSpawning(activity)) {
+      return;
+    }
+    if (_activeUncollectedCoins() >= 5) {
+      return;
+    }
     if (_ghost == null || _ghostDeltaSeconds <= 3) {
       return;
     }
@@ -479,7 +565,10 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
       return;
     }
     final spawn = await _osm.findValidSpawnPoint(pos, bearing, 42, 115);
-    if (spawn == null || emit.isDone) {
+    if (spawn == null ||
+        emit.isDone ||
+        !_spawnPointClear(spawn) ||
+        !_pairwiseSpacingOk(spawn)) {
       return;
     }
     _coins = [
@@ -492,6 +581,7 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
         spawnedAt: DateTime.now(),
       ),
     ];
+    _playerPosAtLastCoinSpawn = pos;
     _emitActive(emit);
   }
 
@@ -633,7 +723,13 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
     _objective = _initialObjective(_objectiveOrdinal);
     _emitActive(emit);
 
-    await _ensureCoins(emit, event.position, event.bearing);
+    await _ensureCoins(
+      emit,
+      event.position,
+      event.bearing,
+      MotionActivity.running,
+      relaxSpawnDistance: true,
+    );
     if (emit.isDone) {
       return;
     }
@@ -672,6 +768,7 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
     _gateFlagWrongBearing.clear();
     _lastPhantomRollAt = null;
     _lastMilestoneKm = 0;
+    _playerPosAtLastCoinSpawn = null;
     _pendingCelebration = null;
   }
 
@@ -680,8 +777,24 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
     if (s is! RunActive) {
       return;
     }
+    _coins = _coins.where((c) => c.isCollected).toList();
     _pauseBegan = DateTime.now();
-    emit(RunPaused(s.data));
+    final cleared = List<CoinModel>.from(_coins);
+    emit(
+      RunPaused(
+        RunSessionData(
+          run: s.data.run.copyWith(coins: cleared),
+          coins: cleared,
+          gates: s.data.gates,
+          multiplier: s.data.multiplier,
+          ghostDeltaSeconds: s.data.ghostDeltaSeconds,
+          streetbeatActive: s.data.streetbeatActive,
+          streetbeatEndsAt: s.data.streetbeatEndsAt,
+          activeObjective: s.data.activeObjective,
+          ghost: s.data.ghost,
+        ),
+      ),
+    );
   }
 
   void _onRunResumed(re.RunResumed event, Emitter<RunState> emit) {
@@ -809,7 +922,12 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
       return;
     }
 
-    await _maybeMilestoneKm(emit, event.position, event.bearing);
+    await _maybeMilestoneKm(
+      emit,
+      event.position,
+      event.bearing,
+      event.activity,
+    );
     if (emit.isDone) {
       return;
     }
@@ -819,16 +937,31 @@ class RunBloc extends Bloc<re.RunEvent, RunState> {
       return;
     }
 
-    await _maybePhantomGold(emit, event.position, event.bearing);
+    await _maybePhantomGold(
+      emit,
+      event.position,
+      event.bearing,
+      event.activity,
+    );
     if (emit.isDone) {
       return;
     }
-    await _maybePersonalBestCoin(emit, event.position, event.bearing);
+    await _maybePersonalBestCoin(
+      emit,
+      event.position,
+      event.bearing,
+      event.activity,
+    );
     if (emit.isDone) {
       return;
     }
 
-    await _ensureCoins(emit, event.position, event.bearing);
+    await _ensureCoins(
+      emit,
+      event.position,
+      event.bearing,
+      event.activity,
+    );
     if (emit.isDone) {
       return;
     }

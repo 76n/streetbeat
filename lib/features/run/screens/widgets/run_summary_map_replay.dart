@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../../core/constants/map_tiles.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/utils/location_utils.dart';
 import '../../models/coin_model.dart';
@@ -84,9 +85,6 @@ class RunSummaryMapReplay extends StatefulWidget {
 
 class _RunSummaryMapReplayState extends State<RunSummaryMapReplay>
     with SingleTickerProviderStateMixin {
-  static const _tiles =
-      'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png';
-
   late final AnimationController _draw;
 
   @override
@@ -135,9 +133,12 @@ class _RunSummaryMapReplayState extends State<RunSummaryMapReplay>
             ),
             children: [
               TileLayer(
-                urlTemplate: _tiles,
-                userAgentPackageName: 'com.streetbeat.streetbeat',
+                urlTemplate: MapTiles.primary,
+                fallbackUrl: MapTiles.fallback,
+                userAgentPackageName: MapTiles.userAgentPackageName,
                 maxZoom: 20,
+                maxNativeZoom: 19,
+                subdomains: const [],
               ),
               if (widget.ghostRoute.length >= 2)
                 PolylineLayer(

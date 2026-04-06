@@ -87,22 +87,53 @@ class LocationService {
       await prefs.setBool(_prefsFirstPromptKey, true);
     }
 
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      throw LocationServiceException(
+        'Location services are turned off. Enable them in system settings.',
+      );
+    }
+
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       var loc = await Permission.location.status;
-      if (loc.isDenied) {
-        loc = await Permission.location.request();
-      }
       if (loc.isGranted || loc.isLimited) {
-        final always = await Permission.locationAlways.status;
-        if (!always.isGranted) {
-          await Permission.locationAlways.request();
+        // Skip request — already allowed
+      } else if (loc.isPermanentlyDenied) {
+        throw LocationServiceException(
+          'Location permission is blocked. Open Settings to allow StreetBeat.',
+        );
+      } else if (loc.isDenied || loc.isRestricted) {
+        loc = await Permission.location.request();
+        if (!loc.isGranted && !loc.isLimited) {
+          throw LocationServiceException(
+            'Location permission is required to track a run.',
+          );
         }
+      }
+
+      var always = await Permission.locationAlways.status;
+      if (!always.isGranted && !always.isPermanentlyDenied) {
+        await Permission.locationAlways.request();
       }
     }
 
     var g = await Geolocator.checkPermission();
+    if (g == LocationPermission.deniedForever) {
+      throw LocationServiceException(
+        'Location permission is blocked. Open Settings to allow StreetBeat.',
+      );
+    }
     if (g == LocationPermission.denied) {
       g = await Geolocator.requestPermission();
+    }
+    if (g == LocationPermission.deniedForever) {
+      throw LocationServiceException(
+        'Location permission is blocked. Open Settings to allow StreetBeat.',
+      );
+    }
+    if (g == LocationPermission.denied) {
+      throw LocationServiceException(
+        'Location permission is required to track a run.',
+      );
     }
   }
 
@@ -111,20 +142,14 @@ class LocationService {
       return false;
     }
 
-    if (!kIsWeb) {
-      var loc = await Permission.location.status;
-      if (loc.isDenied) {
-        loc = await Permission.location.request();
-      }
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final loc = await Permission.location.status;
       if (!loc.isGranted && !loc.isLimited) {
         return false;
       }
     }
 
-    var g = await Geolocator.checkPermission();
-    if (g == LocationPermission.denied) {
-      g = await Geolocator.requestPermission();
-    }
+    final g = await Geolocator.checkPermission();
     if (g == LocationPermission.denied ||
         g == LocationPermission.deniedForever) {
       return false;

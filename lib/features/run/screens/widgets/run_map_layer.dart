@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../../core/constants/map_tiles.dart';
 import '../../../../core/theme/colors.dart';
 import '../../../../core/utils/location_utils.dart';
+import '../../../../core/utils/map_tile_network.dart';
 import '../../models/coin_model.dart';
 import '../../models/gate_model.dart';
 
@@ -46,12 +48,17 @@ class RunMapLayer extends StatefulWidget {
 }
 
 class _RunMapLayerState extends State<RunMapLayer> {
-  static const _stadiaDark =
-      'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png';
+  bool _checkingNet = true;
+  bool _netOk = false;
+  bool _tilesFailed = false;
+  int _tileErrorCount = 0;
+  int _layerGeneration = 0;
+  bool _tilesLoadingOverlay = true;
 
   @override
   void initState() {
     super.initState();
+    _verifyInternet();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
@@ -82,6 +89,51 @@ class _RunMapLayerState extends State<RunMapLayer> {
     }
   }
 
+  Future<void> _verifyInternet() async {
+    setState(() {
+      _checkingNet = true;
+    });
+    final ok = await mapTilesReachable();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _checkingNet = false;
+      _netOk = ok;
+    });
+    if (ok) {
+      _scheduleHideLoadingOverlay();
+    }
+  }
+
+  void _scheduleHideLoadingOverlay() {
+    Future<void>.delayed(const Duration(milliseconds: 2000), () {
+      if (mounted) {
+        setState(() => _tilesLoadingOverlay = false);
+      }
+    });
+  }
+
+  void _onTileError(TileImage _, Object __, StackTrace? ___) {
+    _tileErrorCount++;
+    if (_tileErrorCount >= 8 && mounted) {
+      setState(() {
+        _tilesFailed = true;
+        _tilesLoadingOverlay = false;
+      });
+    }
+  }
+
+  void _retryTiles() {
+    setState(() {
+      _tilesFailed = false;
+      _tileErrorCount = 0;
+      _layerGeneration++;
+      _tilesLoadingOverlay = true;
+    });
+    _scheduleHideLoadingOverlay();
+  }
+
   bool _gateLooksCapturable(GateModel g) {
     final d = LocationUtils.distanceMeters(widget.player, g.position);
     if (d > 14 || widget.playerSpeedMps < 0.9) {
@@ -93,133 +145,271 @@ class _RunMapLayerState extends State<RunMapLayer> {
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: FlutterMap(
-        mapController: widget.mapController,
-        options: MapOptions(
-          initialCenter: widget.player,
-          initialZoom: 17,
-          initialRotation: 0,
-          minZoom: 5,
-          maxZoom: 20,
-          backgroundColor: AppColors.background,
-          interactionOptions: const InteractionOptions(
-            flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+    if (_checkingNet) {
+      return const ColoredBox(
+        color: AppColors.background,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: AppColors.primary),
+              SizedBox(height: 16),
+              Text(
+                'Checking connection…',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ],
           ),
         ),
-        children: [
-          TileLayer(
-            urlTemplate: _stadiaDark,
-            userAgentPackageName: 'com.streetbeat.streetbeat',
-            maxZoom: 20,
+      );
+    }
+
+    if (!_netOk) {
+      return ColoredBox(
+        color: AppColors.background,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.wifi_off_rounded,
+                  size: 48,
+                  color: AppColors.textSecondary.withValues(alpha: 0.8),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Map needs internet',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Connect to load map tiles, then try again.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textSecondary.withValues(alpha: 0.9),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: _verifyInternet,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                  ),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
           ),
-          const RichAttributionWidget(
-            attributions: [
-              TextSourceAttribution(
-                'Stadia Maps, OpenMapTiles, OpenStreetMap contributors',
-                prependCopyright: false,
+        ),
+      );
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        RepaintBoundary(
+          child: FlutterMap(
+            key: ValueKey(_layerGeneration),
+            mapController: widget.mapController,
+            options: MapOptions(
+              initialCenter: widget.player,
+              initialZoom: 17,
+              initialRotation: 0,
+              minZoom: 5,
+              maxZoom: 20,
+              backgroundColor: AppColors.background,
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
               ),
-            ],
-          ),
-          if (widget.path.length >= 2)
-            PolylineLayer(
-              polylines: [
-                Polyline(
-                  points: widget.path,
-                  strokeWidth: 4,
-                  color: AppColors.primary.withValues(alpha: 0.35),
-                  strokeCap: StrokeCap.round,
-                  strokeJoin: StrokeJoin.round,
-                ),
-              ],
             ),
-          if (widget.ghostPastPath.length >= 2)
-            PolylineLayer(
-              polylines: [
-                Polyline(
-                  points: widget.ghostPastPath,
-                  strokeWidth: 3,
-                  color: AppColors.ghostBlue.withValues(alpha: 0.45),
-                  strokeCap: StrokeCap.round,
-                  strokeJoin: StrokeJoin.round,
+            children: [
+              TileLayer(
+                key: ValueKey('tl_$_layerGeneration'),
+                urlTemplate: MapTiles.primary,
+                fallbackUrl: MapTiles.fallback,
+                userAgentPackageName: MapTiles.userAgentPackageName,
+                maxZoom: 20,
+                maxNativeZoom: 19,
+                subdomains: const [],
+                errorTileCallback: _onTileError,
+              ),
+              const RichAttributionWidget(
+                attributions: [
+                  TextSourceAttribution(
+                    '© OpenStreetMap contributors · HOT',
+                    prependCopyright: false,
+                  ),
+                ],
+              ),
+              if (widget.path.length >= 2)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: widget.path,
+                      strokeWidth: 4,
+                      color: AppColors.primary.withValues(alpha: 0.35),
+                      strokeCap: StrokeCap.round,
+                      strokeJoin: StrokeJoin.round,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          if (widget.ghostAheadPath.length >= 2)
-            PolylineLayer(
-              polylines: [
-                Polyline(
-                  points: widget.ghostAheadPath,
-                  strokeWidth: 3,
-                  color: AppColors.ghostBlue.withValues(alpha: 0.55),
-                  isDotted: true,
-                  strokeCap: StrokeCap.round,
+              if (widget.ghostPastPath.length >= 2)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: widget.ghostPastPath,
+                      strokeWidth: 3,
+                      color: AppColors.ghostBlue.withValues(alpha: 0.45),
+                      strokeCap: StrokeCap.round,
+                      strokeJoin: StrokeJoin.round,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          MarkerLayer(
-            rotate: true,
-            markers: [
-              for (final c in widget.coins)
-                if (!c.isCollected)
-                  Marker(
-                    key: ValueKey(c.id),
-                    point: c.position,
-                    width: 44,
-                    height: 44,
-                    child: RepaintBoundary(
-                      child: _PulsingCoinMarker(
-                        type: c.type,
-                        phase: widget.pulsePhase,
-                        cascade: widget.streetbeatActive,
-                        seed: c.id.hashCode,
+              if (widget.ghostAheadPath.length >= 2)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: widget.ghostAheadPath,
+                      strokeWidth: 3,
+                      color: AppColors.ghostBlue.withValues(alpha: 0.55),
+                      isDotted: true,
+                      strokeCap: StrokeCap.round,
+                    ),
+                  ],
+                ),
+              MarkerLayer(
+                rotate: true,
+                markers: [
+                  for (final c in widget.coins)
+                    if (!c.isCollected)
+                      Marker(
+                        key: ValueKey(c.id),
+                        point: c.position,
+                        width: 44,
+                        height: 44,
+                        child: RepaintBoundary(
+                          child: _PulsingCoinMarker(
+                            type: c.type,
+                            phase: widget.pulsePhase,
+                            cascade: widget.streetbeatActive,
+                            seed: c.id.hashCode,
+                          ),
+                        ),
+                      ),
+                ],
+              ),
+              MarkerLayer(
+                markers: [
+                  for (final g in widget.gates)
+                    if (!g.isCapture && !g.isMissed)
+                      Marker(
+                        key: ValueKey(g.id),
+                        point: g.position,
+                        width: 56,
+                        height: 48,
+                        rotate: false,
+                        alignment: Alignment.center,
+                        child: RepaintBoundary(
+                          child: _GateMarker(
+                            directionDeg: g.direction,
+                            capturable: _gateLooksCapturable(g),
+                          ),
+                        ),
+                      ),
+                ],
+              ),
+              MarkerLayer(
+                rotate: true,
+                markers: [
+                  if (widget.ghostMarker != null)
+                    Marker(
+                      point: widget.ghostMarker!,
+                      width: 28,
+                      height: 28,
+                      child: RepaintBoundary(
+                        child: _GhostDot(opacity: widget.ghostMarkerOpacity),
                       ),
                     ),
-                  ),
-            ],
-          ),
-          MarkerLayer(
-            markers: [
-              for (final g in widget.gates)
-                if (!g.isCapture && !g.isMissed)
                   Marker(
-                    key: ValueKey(g.id),
-                    point: g.position,
+                    point: widget.player,
                     width: 56,
-                    height: 48,
-                    rotate: false,
-                    alignment: Alignment.center,
-                    child: RepaintBoundary(
-                      child: _GateMarker(
-                        directionDeg: g.direction,
-                        capturable: _gateLooksCapturable(g),
-                      ),
-                    ),
+                    height: 56,
+                    child: const RepaintBoundary(child: _PlayerMarker()),
                   ),
-            ],
-          ),
-          MarkerLayer(
-            rotate: true,
-            markers: [
-              if (widget.ghostMarker != null)
-                Marker(
-                  point: widget.ghostMarker!,
-                  width: 28,
-                  height: 28,
-                  child: RepaintBoundary(
-                    child: _GhostDot(opacity: widget.ghostMarkerOpacity),
-                  ),
-                ),
-              Marker(
-                point: widget.player,
-                width: 56,
-                height: 56,
-                child: const RepaintBoundary(child: _PlayerMarker()),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        ),
+        if (_tilesLoadingOverlay && !_tilesFailed)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Container(
+                color: AppColors.background.withValues(alpha: 0.35),
+                child: const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: AppColors.primary),
+                      SizedBox(height: 12),
+                      Text(
+                        'Loading map…',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        if (_tilesFailed)
+          Positioned.fill(
+            child: ColoredBox(
+              color: AppColors.background.withValues(alpha: 0.88),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.map_outlined,
+                        size: 44,
+                        color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Could not load map tiles',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 17,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      FilledButton(
+                        onPressed: _retryTiles,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                        ),
+                        child: const Text('Retry map'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/di/service_locator.dart';
 import '../../../core/theme/colors.dart';
@@ -45,6 +47,7 @@ class _RunSessionState extends State<_RunSessionView>
   final GlobalKey _scoreKey = GlobalKey();
   StreamSubscription<LocationSessionSnapshot>? _locSub;
   LocationSessionSnapshot? _snap;
+  String? _locationError;
   bool _runDispatched = false;
   bool _showGhostTrail = true;
   RunState? _prevBlocState;
@@ -120,8 +123,24 @@ class _RunSessionState extends State<_RunSessionView>
   }
 
   Future<void> _startLocation() async {
+    await _locSub?.cancel();
+    _locSub = null;
+    setState(() => _locationError = null);
     try {
       await sl<LocationService>().requestPermissionsOnFirstRun();
+    } on LocationServiceException catch (e) {
+      if (mounted) {
+        setState(() => _locationError = e.message);
+      }
+      return;
+    } catch (e) {
+      if (mounted) {
+        setState(() => _locationError = '$e');
+      }
+      return;
+    }
+
+    try {
       final stream = sl<LocationService>().watchSession();
       _locSub = stream.listen(
         (s) {
@@ -148,22 +167,21 @@ class _RunSessionState extends State<_RunSessionView>
               routeCompressed: s.compressedRecordedPath,
             ),
           );
-          setState(() => _snap = s);
+          setState(() {
+            _snap = s;
+            _locationError = null;
+          });
         },
         onError: (Object e) {
           if (!mounted) {
             return;
           }
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$e')),
-          );
+          setState(() => _locationError = '$e');
         },
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
-        );
+        setState(() => _locationError = '$e');
       }
     }
   }
@@ -352,6 +370,54 @@ class _RunSessionState extends State<_RunSessionView>
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(state.message, textAlign: TextAlign.center),
+                ),
+              );
+            }
+
+            final err = _locationError;
+            if (err != null) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.location_off_rounded,
+                        size: 48,
+                        color: AppColors.textSecondary.withValues(alpha: 0.85),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        err,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      FilledButton(
+                        onPressed: () async {
+                          await Geolocator.openLocationSettings();
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                        ),
+                        child: const Text('Location settings'),
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton( // ignore: prefer_const_constructors
+                        onPressed: openAppSettings,
+                        child: const Text('App settings'),
+                      ),
+                      const SizedBox(height: 10),
+                      TextButton(
+                        onPressed: _startLocation,
+                        child: const Text('Try again'),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }

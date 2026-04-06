@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/constants/map_tiles.dart';
 import '../../../core/theme/colors.dart';
 import '../../run/screens/widgets/run_summary_map_replay.dart';
 
@@ -9,9 +10,6 @@ class FeedRouteThumbnail extends StatelessWidget {
   const FeedRouteThumbnail({super.key, required this.route});
 
   final List<LatLng> route;
-
-  static const _tiles =
-      'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png';
 
   @override
   Widget build(BuildContext context) {
@@ -50,8 +48,11 @@ class FeedRouteThumbnail extends StatelessWidget {
           ),
           children: [
             TileLayer(
-              urlTemplate: _tiles,
-              userAgentPackageName: 'dev.fleaflet/flutter_map',
+              urlTemplate: MapTiles.primary,
+              fallbackUrl: MapTiles.fallback,
+              userAgentPackageName: MapTiles.userAgentPackageName,
+              maxNativeZoom: 19,
+              subdomains: const [],
             ),
             PolylineLayer(
               polylines: [

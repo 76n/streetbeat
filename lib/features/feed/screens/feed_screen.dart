@@ -9,7 +9,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/badges.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/theme/colors.dart';
-import '../../../shared/widgets/empty_state.dart';
 import '../../../core/utils/location_utils.dart';
 import '../../../core/utils/time_format_utils.dart';
 import '../../../shared/repositories/social_repository.dart'
@@ -102,12 +101,59 @@ class _FeedScreenState extends State<FeedScreen> {
                   if (_runs.isEmpty)
                     SliverFillRemaining(
                       hasScrollBody: false,
-                      child: StreetBeatEmptyState(
-                        title: 'Your feed is quiet',
-                        message:
-                            'Add friends to see their runs here. Every activity shows route, pace, and kudos.',
-                        actionLabel: 'Find friends',
-                        onAction: () => _openFriendsSheet(context, uid),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '🏃',
+                              style: TextStyle(
+                                fontSize: 56,
+                                color: AppColors.textSecondary
+                                    .withValues(alpha: 0.9),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            const Text(
+                              'No runs yet',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 22,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Complete your first run to see it here',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppColors.textSecondary.withValues(
+                                  alpha: 0.95,
+                                ),
+                                height: 1.4,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+                            FilledButton(
+                              onPressed: () => context.push('/run'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 28,
+                                  vertical: 16,
+                                ),
+                              ),
+                              child: const Text('Start your first run →'),
+                            ),
+                            const SizedBox(height: 16),
+                            TextButton(
+                              onPressed: () => _openFriendsSheet(context, uid),
+                              child: const Text('Find friends'),
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   else

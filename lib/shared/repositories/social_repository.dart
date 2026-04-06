@@ -277,8 +277,11 @@ class SocialRepository {
       uids.map((id) => _firestore.collection('users').doc(id).get()),
     );
     final tmp = <({String uid, String name, int score})>[];
-    for (final s in snaps) {
+    for (var i = 0; i < snaps.length; i++) {
+      final s = snaps[i];
+      final expectedUid = uids[i];
       if (!s.exists) {
+        tmp.add((uid: expectedUid, name: 'Runner', score: 0));
         continue;
       }
       final m = s.data()!;
