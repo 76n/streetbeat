@@ -8,7 +8,7 @@ import { setGlobalOptions } from "firebase-functions/v2/options";
 admin.initializeApp();
 const db = admin.firestore();
 
-setGlobalOptions({ region: "us-central1" });
+setGlobalOptions({ region: "me-west1" });
 
 function isoWeekToken(d: Date): string {
   const utc = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));

@@ -35,7 +35,7 @@ Future<void> configureDependencies() async {
     sl.registerLazySingleton<SocialRepository>(
       () => SocialRepository(
         FirebaseFirestore.instance,
-        functions: FirebaseFunctions.instanceFor(region: 'us-central1'),
+        functions: FirebaseFunctions.instanceFor(region: 'me-west1'),
       ),
     );
   }
