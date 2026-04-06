@@ -7,6 +7,8 @@ google-service-account.json
 android/app/google-service-account.json
 android/app/firebase-service-account.json
 secrets/
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
 
 # Miscellaneous
 *.class
