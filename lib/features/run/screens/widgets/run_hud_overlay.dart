@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../../core/theme/colors.dart';
+import '../../../../core/theme/text_styles.dart';
 import '../../../../core/utils/location_utils.dart';
 import '../../models/active_objective.dart';
 import '../../models/run_model.dart';
@@ -261,66 +262,61 @@ class _TopBarCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: AppColors.surface.withValues(alpha: 0.72),
-            borderRadius: BorderRadius.circular(16),
+            color: AppColors.surface.withValues(alpha: 0.45),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: Colors.white.withValues(alpha: 0.12),
             ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        distanceLabel,
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5,
-                          height: 1.05,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        paceLabel,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+                  flex: 2,
+                  child: Text(
+                    distanceLabel,
+                    style: AppTextStyles.hudPrimary(28),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    paceLabel,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyles.hudSecondary(14).copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                 ),
                 Text(
                   timerLabel,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
+                  style: AppTextStyles.hudPrimary(20),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Transform.scale(
                   scale: scoreScale,
                   alignment: Alignment.centerRight,
                   child: Text(
                     '$score',
                     key: scoreKey,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
+                    style: AppTextStyles.hudPrimary(22).copyWith(
                       color: AppColors.gold,
-                      fontFeatures: [FontFeature.tabularFigures()],
                     ),
                   ),
                 ),
@@ -630,59 +626,102 @@ class _CircleBtn extends StatelessWidget {
   }
 }
 
-class _StopFab extends StatelessWidget {
+class _StopFab extends StatefulWidget {
   const _StopFab({required this.onStop});
 
   final VoidCallback onStop;
 
   @override
+  State<_StopFab> createState() => _StopFabState();
+}
+
+class _StopFabState extends State<_StopFab>
+    with SingleTickerProviderStateMixin {
+  static const _holdDuration = Duration(milliseconds: 500);
+  late final AnimationController _progress = AnimationController(
+    vsync: this,
+    duration: _holdDuration,
+  );
+  bool _endedRun = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _progress.addStatusListener(_onProgressStatus);
+  }
+
+  void _onProgressStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed && mounted && !_endedRun) {
+      _endedRun = true;
+      _progress.reset();
+      HapticFeedback.heavyImpact();
+      widget.onStop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _progress.removeStatusListener(_onProgressStatus);
+    _progress.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.red.shade700,
-      elevation: 8,
-      shadowColor: Colors.red.withValues(alpha: 0.5),
-      shape: const CircleBorder(),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () async {
-          HapticFeedback.mediumImpact();
-          final ok = await showDialog<bool>(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              backgroundColor: AppColors.surface,
-              title: const Text('End run?'),
-              content: const Text(
-                'Your run will be saved and scored.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                  child: const Text('Stop'),
-                ),
-              ],
-            ),
-          );
-          if (ok == true) {
-            onStop();
-          }
-        },
-        child: const SizedBox(
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (_) {
+        _endedRun = false;
+        HapticFeedback.lightImpact();
+        _progress.forward(from: 0);
+      },
+      onPointerUp: (_) {
+        if (!_endedRun && !_progress.isCompleted) {
+          _progress.reset();
+        }
+      },
+      onPointerCancel: (_) {
+        if (!_endedRun && !_progress.isCompleted) {
+          _progress.reset();
+        }
+      },
+      child: Material(
+        color: const Color(0xFFC62828),
+        elevation: 8,
+        shadowColor: Colors.red.withValues(alpha: 0.5),
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: SizedBox(
           width: 76,
           height: 76,
-          child: Center(
-            child: Text(
-              'STOP',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.2,
-                fontSize: 15,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              AnimatedBuilder(
+                animation: _progress,
+                builder: (context, child) {
+                  return CircularProgressIndicator(
+                    value: _progress.value,
+                    strokeWidth: 4,
+                    backgroundColor: Colors.white.withValues(alpha: 0.15),
+                    color: Colors.white,
+                  );
+                },
               ),
-            ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  'HOLD',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                    fontSize: 13,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

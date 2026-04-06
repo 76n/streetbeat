@@ -10,6 +10,7 @@ import '../../../core/utils/week_utils.dart';
 import '../../../shared/models/user_model.dart';
 import '../../../shared/widgets/avatar_widget.dart';
 import '../../../shared/widgets/badge_grid.dart';
+import '../../../shared/widgets/stat_card.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/bloc/auth_event.dart';
 import '../../auth/bloc/auth_state.dart';
@@ -38,6 +39,23 @@ class ProfileScreen extends StatelessWidget {
         appBar: AppBar(
           title: const Text('Profile'),
           backgroundColor: AppColors.background,
+          surfaceTintColor: Colors.transparent,
+          actions: [
+            IconButton(
+              tooltip: 'Edit profile',
+              icon: const Icon(Icons.edit_outlined),
+              color: AppColors.textPrimary,
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    behavior: SnackBarBehavior.floating,
+                    backgroundColor: AppColors.card,
+                    content: Text('Profile editing is coming soon.'),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
         body: BlocBuilder<AuthBloc, AuthState>(
           builder: (context, state) {
@@ -80,7 +98,7 @@ class ProfileScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 AvatarWidget(
-                                  radius: 40,
+                                  radius: 48,
                                   name: user.name,
                                 ),
                                 const SizedBox(width: 16),
@@ -238,49 +256,33 @@ class _StatsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = [
-      ('Runs', '${user.totalRuns}'),
-      ('Distance', LocationUtils.formatDistance(user.totalDistance)),
-      ('Coins', '${user.totalCoins}'),
-      ('Gates', '${user.gatesCapturedLifetime}'),
+    final items = <(String, String, IconData)>[
+      ('Runs', '${user.totalRuns}', Icons.directions_run_rounded),
+      (
+        'Distance',
+        LocationUtils.formatDistance(user.totalDistance),
+        Icons.straighten_rounded,
+      ),
+      ('Coins', '${user.totalCoins}', Icons.stars_rounded),
+      (
+        'Gates',
+        '${user.gatesCapturedLifetime}',
+        Icons.flag_rounded,
+      ),
     ];
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-      childAspectRatio: 1.85,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1.75,
       children: items
           .map(
-            (e) => Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    e.$1,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    e.$2,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 18,
-                    ),
-                  ),
-                ],
-              ),
+            (e) => StatCard(
+              title: e.$1,
+              value: e.$2,
+              icon: e.$3,
             ),
           )
           .toList(),
@@ -383,12 +385,44 @@ class _RecentRunsSliver extends StatelessWidget {
           .snapshots(),
       builder: (context, snap) {
         if (!snap.hasData || snap.data!.docs.isEmpty) {
-          return const SliverToBoxAdapter(
+          return SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'No runs yet.',
-                style: TextStyle(color: AppColors.textSecondary),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.06),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.route_rounded,
+                      size: 40,
+                      color: AppColors.primary.withValues(alpha: 0.6),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'No runs yet',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Start a run from the center button — your recent '
+                      'activities show up here.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textSecondary,
+                            height: 1.4,
+                          ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );

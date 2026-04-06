@@ -103,7 +103,7 @@ class _StreetbeatRootState extends State<_StreetbeatRoot> {
                 );
                 return SlideTransition(
                   position: Tween<Offset>(
-                    begin: const Offset(0, 0.06),
+                    begin: const Offset(0, 1),
                     end: Offset.zero,
                   ).animate(curved),
                   child: FadeTransition(

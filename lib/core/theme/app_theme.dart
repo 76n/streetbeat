@@ -18,13 +18,25 @@ abstract final class AppTheme {
       onSurface: AppColors.textPrimary,
       secondary: AppColors.ghostBlue,
       onSecondary: AppColors.background,
-      error: AppColors.primary,
+      error: Color(0xFFE53935),
       onError: AppColors.textPrimary,
     );
 
     return base.copyWith(
       colorScheme: colorScheme,
       scaffoldBackgroundColor: AppColors.background,
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: AppColors.card,
+        contentTextStyle: TextStyle(
+          fontFamily: _fontFamily,
+          color: AppColors.textPrimary,
+          fontWeight: FontWeight.w500,
+        ),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
       appBarTheme: AppBarTheme(
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -88,6 +100,25 @@ abstract final class AppTheme {
         hintStyle: const TextStyle(color: AppColors.textSecondary),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          side: WidgetStateProperty.all(
+            const BorderSide(color: AppColors.card, width: 1),
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return AppColors.textPrimary;
+            }
+            return AppColors.textSecondary;
+          }),
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return AppColors.primary.withValues(alpha: 0.35);
+            }
+            return AppColors.surface;
+          }),
+        ),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: AppColors.surface,

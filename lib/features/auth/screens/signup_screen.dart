@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/colors.dart';
+import '../../../shared/widgets/animated_button.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -58,8 +59,10 @@ class _SignupScreenState extends State<SignupScreen> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
+          foregroundColor: AppColors.textPrimary,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back_rounded),
+            color: AppColors.textPrimary,
             onPressed: () => context.go('/login'),
           ),
           title: const Text('Create account'),
@@ -68,7 +71,13 @@ class _SignupScreenState extends State<SignupScreen> {
         body: AuthGradientBackground(
           child: SafeArea(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+              padding: EdgeInsets.fromLTRB(
+                24,
+                8,
+                24,
+                32 + MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -249,7 +258,9 @@ class _SignupScreenState extends State<SignupScreen> {
                     BlocBuilder<AuthBloc, AuthState>(
                       builder: (context, state) {
                         final loading = state is AuthLoading;
-                        return ElevatedButton(
+                        return AnimatedButton(
+                          loading: loading,
+                          label: 'Create Account',
                           onPressed: loading
                               ? null
                               : () {
@@ -267,16 +278,6 @@ class _SignupScreenState extends State<SignupScreen> {
                                         );
                                   }
                                 },
-                          child: loading
-                              ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                )
-                              : const Text('Create Account'),
                         );
                       },
                     ),

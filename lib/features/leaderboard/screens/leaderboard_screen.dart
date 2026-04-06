@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/di/service_locator.dart';
 import '../../../core/theme/colors.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../../../core/utils/week_utils.dart';
 import '../../../shared/repositories/social_repository.dart';
 
@@ -39,16 +40,25 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Leaderboard'),
+        title: const Text(
+          'Leaderboard',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
         backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
         bottom: TabBar(
           controller: _tabs,
           indicatorColor: AppColors.primary,
+          indicatorWeight: 3,
           labelColor: AppColors.primary,
           unselectedLabelColor: AppColors.textSecondary,
+          labelStyle: const TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
           tabs: const [
             Tab(text: 'Friends'),
-            Tab(text: 'This Week'),
+            Tab(text: 'Weekly'),
             Tab(text: 'All Time'),
           ],
         ),
@@ -170,11 +180,19 @@ class _FriendsScopedBoardState extends State<_FriendsScopedBoard> {
       );
     }
     if (_rows.isEmpty) {
-      return const Center(
-        child: Text(
-          'Add friends to compare.',
-          style: TextStyle(color: AppColors.textSecondary),
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
         ),
+        children: const [
+          SizedBox(height: 48),
+          StreetBeatEmptyState(
+            title: 'Add friends to compete',
+            message:
+                'See how you stack up on coins each week. Open the bell on the '
+                'Feed tab to find friends and send requests.',
+          ),
+        ],
       );
     }
     return ListView.builder(
@@ -212,10 +230,10 @@ class _GlobalWeekBoard extends StatelessWidget {
           .snapshots(),
       builder: (context, snap) {
         if (snap.hasError) {
-          return Center(
+          return const Center(
             child: Text(
               'Could not load leaderboard.',
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
+              style: TextStyle(color: Color(0xFFE57373)),
             ),
           );
         }
@@ -226,12 +244,19 @@ class _GlobalWeekBoard extends StatelessWidget {
         }
         final docs = snap.data!.docs;
         if (docs.isEmpty) {
-          return const Center(
-            child: Text(
-              'No weekly scores yet. Go for a run!',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary),
+          return ListView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
             ),
+            children: const [
+              SizedBox(height: 48),
+              StreetBeatEmptyState(
+                title: 'Weekly board is open',
+                message:
+                    'No scores for this week yet. Go for a run — your coins '
+                    'land here automatically.',
+              ),
+            ],
           );
         }
         return ListView.builder(
@@ -270,6 +295,13 @@ class _RankRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final podium = row.rank <= 3;
+    final podiumBorder = switch (row.rank) {
+      1 => const Color(0xFFFFD700),
+      2 => const Color(0xFFC0C0C0),
+      3 => const Color(0xFFCD7F32),
+      _ => null,
+    };
     final bg =
         highlight ? AppColors.primary.withValues(alpha: 0.22) : AppColors.card;
     final accent = highlight ? AppColors.primary : AppColors.textPrimary;
@@ -277,7 +309,16 @@ class _RankRow extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: bg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: podium && podiumBorder != null
+              ? BorderSide(
+                  color: podiumBorder.withValues(alpha: 0.85),
+                  width: 2,
+                )
+              : BorderSide.none,
+        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
@@ -304,7 +345,9 @@ class _RankRow extends StatelessWidget {
               const SizedBox(width: 10),
               CircleAvatar(
                 radius: 20,
-                backgroundColor: AppColors.surface,
+                backgroundColor: podium
+                    ? (podiumBorder ?? AppColors.surface).withValues(alpha: 0.2)
+                    : AppColors.surface,
                 child: Text(
                   _initials(row.name),
                   style: TextStyle(

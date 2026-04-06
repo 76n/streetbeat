@@ -84,6 +84,10 @@ class _RunSummaryScreenState extends State<RunSummaryScreen>
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: () => context.go('/home'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  minimumSize: const Size.fromHeight(52),
+                ),
                 child: const Text('Done'),
               ),
             ],
@@ -1092,11 +1096,19 @@ class _BottomActions extends StatelessWidget {
         Expanded(
           child: OutlinedButton.icon(
             onPressed: sharing ? null : onShare,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textPrimary,
+              side: const BorderSide(color: AppColors.primary, width: 1.5),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
             icon: sharing
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
                   )
                 : const Icon(Icons.ios_share_rounded),
             label: Text(sharing ? 'Sharing…' : 'Share'),
@@ -1108,6 +1120,8 @@ class _BottomActions extends StatelessWidget {
             onPressed: onDone,
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.textPrimary,
+              minimumSize: const Size.fromHeight(52),
             ),
             child: const Text('Done'),
           ),

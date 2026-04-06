@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/badges.dart';
 import '../../../core/di/service_locator.dart';
 import '../../../core/theme/colors.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../../../core/utils/location_utils.dart';
 import '../../../core/utils/time_format_utils.dart';
 import '../../../shared/repositories/social_repository.dart'
@@ -56,12 +60,22 @@ class _FeedScreenState extends State<FeedScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('StreetBeat'),
+        title: const Text(
+          'StreetBeat',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            fontSize: 22,
+            letterSpacing: -0.4,
+            color: AppColors.textPrimary,
+          ),
+        ),
         backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
         actions: [
           IconButton(
-            tooltip: 'Friends',
-            icon: const Icon(Icons.people_outline),
+            tooltip: 'Friends & requests',
+            icon: const Icon(Icons.notifications_outlined),
+            color: AppColors.textPrimary,
             onPressed:
                 uid == null ? null : () => _openFriendsSheet(context, uid),
           ),
@@ -71,46 +85,34 @@ class _FeedScreenState extends State<FeedScreen> {
           ? const Center(child: Text('Sign in to see your feed.'))
           : RefreshIndicator(
               color: AppColors.primary,
+              backgroundColor: AppColors.surface,
+              displacement: 48,
+              strokeWidth: 3,
               onRefresh: () async {
-                setState(() {});
+                await Future<void>.delayed(const Duration(milliseconds: 450));
+                if (mounted) {
+                  setState(() {});
+                }
               },
               child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
                 slivers: [
                   if (_runs.isEmpty)
                     SliverFillRemaining(
                       hasScrollBody: false,
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.dynamic_feed_rounded,
-                              size: 56,
-                              color: AppColors.textSecondary.withValues(
-                                alpha: 0.45,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Add friends to see their runs here. Your runs appear below.',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(
-                                    color: AppColors.textSecondary,
-                                    height: 1.4,
-                                  ),
-                            ),
-                          ],
-                        ),
+                      child: StreetBeatEmptyState(
+                        title: 'Your feed is quiet',
+                        message:
+                            'Add friends to see their runs here. Every activity shows route, pace, and kudos.',
+                        actionLabel: 'Find friends',
+                        onAction: () => _openFriendsSheet(context, uid),
                       ),
                     )
                   else
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate(
                           (context, i) {
@@ -309,7 +311,10 @@ class _FriendsSheetContentState extends State<_FriendsSheetContent> {
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.textPrimary,
+                      ),
                     )
                   : const Text('Search'),
             ),
@@ -319,7 +324,7 @@ class _FriendsSheetContentState extends State<_FriendsSheetContent> {
           const SizedBox(height: 8),
           Text(
             _searchError,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
+            style: const TextStyle(color: Color(0xFFE57373)),
           ),
         ],
         const SizedBox(height: 12),
@@ -417,6 +422,32 @@ class _IncomingRequestTile extends StatelessWidget {
   }
 }
 
+class _StatChip extends StatelessWidget {
+  const _StatChip({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: AppColors.primary),
+        const SizedBox(width: 6),
+        Text(
+          text,
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ActivityCard extends StatefulWidget {
   const _ActivityCard({
     required this.run,
@@ -434,10 +465,21 @@ class _ActivityCard extends StatefulWidget {
   State<_ActivityCard> createState() => _ActivityCardState();
 }
 
-class _ActivityCardState extends State<_ActivityCard> {
+class _ActivityCardState extends State<_ActivityCard>
+    with SingleTickerProviderStateMixin {
   bool _kudosBusy = false;
   int? _kudosCountOverride;
   bool? _iGaveKudosOverride;
+  late final AnimationController _kudosBurst = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+  );
+
+  @override
+  void dispose() {
+    _kudosBurst.dispose();
+    super.dispose();
+  }
 
   @override
   void didUpdateWidget(covariant _ActivityCard oldWidget) {
@@ -466,6 +508,14 @@ class _ActivityCardState extends State<_ActivityCard> {
         runId: widget.run.id,
         uid: widget.viewerUid,
       );
+      if (mounted) {
+        HapticFeedback.mediumImpact();
+        unawaited(_kudosBurst.forward(from: 0).then((_) {
+          if (mounted) {
+            _kudosBurst.reverse();
+          }
+        }));
+      }
       widget.onKudosChanged();
     } catch (_) {
       if (mounted) {
@@ -490,26 +540,32 @@ class _ActivityCardState extends State<_ActivityCard> {
     final kudosCount = _kudosCountOverride ?? r.kudosCount;
 
     return Material(
-      color: AppColors.card,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: widget.onOpenRun,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
                   CircleAvatar(
-                    radius: 22,
-                    backgroundColor: AppColors.surface,
+                    radius: 24,
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.22),
                     child: Text(
                       _initials(name),
                       style: const TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 14,
+                        fontSize: 15,
                         color: AppColors.textPrimary,
                       ),
                     ),
@@ -539,26 +595,57 @@ class _ActivityCardState extends State<_ActivityCard> {
                 ],
               ),
               const SizedBox(height: 12),
-              FeedRouteThumbnail(route: r.route),
-              const SizedBox(height: 12),
-              Text(
-                '${LocationUtils.formatDistance(r.distance)} · ${r.averagePace ?? '—'} · ${formatDurationHms(r.durationSeconds)} · ${r.totalScore} pts',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 13,
-                  height: 1.35,
-                ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: FeedRouteThumbnail(route: r.route),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 14,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _StatChip(
+                    icon: Icons.straighten_rounded,
+                    text: LocationUtils.formatDistance(r.distance),
+                  ),
+                  _StatChip(
+                    icon: Icons.speed_rounded,
+                    text: r.averagePace ?? '—',
+                  ),
+                  _StatChip(
+                    icon: Icons.timer_outlined,
+                    text: formatDurationHms(r.durationSeconds),
+                  ),
+                  _StatChip(
+                    icon: Icons.stars_rounded,
+                    text: '${r.totalScore}',
+                  ),
+                ],
               ),
               if (r.earnedBadgeIds.isNotEmpty) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
+                  spacing: 8,
+                  runSpacing: 6,
                   children: r.earnedBadgeIds
                       .map(
-                        (id) => Text(
-                          kBadgeById[id]?.icon ?? '🏅',
-                          style: const TextStyle(fontSize: 18),
+                        (id) => Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.card,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.25),
+                            ),
+                          ),
+                          child: Text(
+                            kBadgeById[id]?.icon ?? '🏅',
+                            style: const TextStyle(fontSize: 16),
+                          ),
                         ),
                       )
                       .toList(),
@@ -567,24 +654,52 @@ class _ActivityCardState extends State<_ActivityCard> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  TextButton.icon(
-                    onPressed: _kudosBusy ? null : _toggleKudos,
-                    icon: Text(
-                      '👊',
-                      style: TextStyle(
-                        fontSize: 20,
-                        color: iGaveKudos
-                            ? AppColors.primary
-                            : AppColors.textSecondary,
-                      ),
-                    ),
-                    label: Text(
-                      '$kudosCount',
-                      style: TextStyle(
-                        color: iGaveKudos
-                            ? AppColors.primary
-                            : AppColors.textSecondary,
-                        fontWeight: FontWeight.w700,
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _kudosBusy ? null : _toggleKudos,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ScaleTransition(
+                              scale: Tween<double>(begin: 1, end: 1.35).animate(
+                                CurvedAnimation(
+                                  parent: _kudosBurst,
+                                  curve: Curves.elasticOut,
+                                ),
+                              ),
+                              child: Text(
+                                '👊',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  color: iGaveKudos
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '$kudosCount',
+                              style: TextStyle(
+                                color: iGaveKudos
+                                    ? AppColors.primary
+                                    : AppColors.textSecondary,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
