@@ -12,10 +12,9 @@ import 'features/auth/bloc/auth_bloc.dart';
 import 'features/auth/bloc/auth_event.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/auth/screens/signup_screen.dart';
-import 'features/feed/screens/feed_screen.dart';
-import 'features/leaderboard/screens/leaderboard_screen.dart';
-import 'features/profile/screens/profile_screen.dart';
+import 'shared/widgets/main_shell.dart';
 import 'features/run/screens/run_screen.dart';
+import 'features/run/models/run_summary_payload.dart';
 import 'features/run/screens/run_summary_screen.dart';
 
 class StreetbeatApp extends StatelessWidget {
@@ -76,7 +75,7 @@ class _StreetbeatRootState extends State<_StreetbeatRoot> {
           path: '/home',
           pageBuilder: (context, state) => CustomTransitionPage<void>(
             key: state.pageKey,
-            child: const FeedScreen(),
+            child: const MainShell(),
             transitionsBuilder: (context, animation, _, child) {
               return FadeTransition(opacity: animation, child: child);
             },
@@ -88,15 +87,33 @@ class _StreetbeatRootState extends State<_StreetbeatRoot> {
         ),
         GoRoute(
           path: '/run-summary',
-          builder: (context, state) => const RunSummaryScreen(),
-        ),
-        GoRoute(
-          path: '/profile',
-          builder: (context, state) => const ProfileScreen(),
-        ),
-        GoRoute(
-          path: '/leaderboard',
-          builder: (context, state) => const LeaderboardScreen(),
+          pageBuilder: (context, state) {
+            final extra = state.extra;
+            return CustomTransitionPage<void>(
+              key: state.pageKey,
+              child: RunSummaryScreen(
+                payload: extra is RunSummaryPayload ? extra : null,
+              ),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
+                  reverseCurve: Curves.easeInCubic,
+                );
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.06),
+                    end: Offset.zero,
+                  ).animate(curved),
+                  child: FadeTransition(
+                    opacity: curved,
+                    child: child,
+                  ),
+                );
+              },
+            );
+          },
         ),
       ],
     );

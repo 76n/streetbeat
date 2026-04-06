@@ -97,6 +97,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           activityType: event.activityType,
           weeklyGoalRuns: event.weeklyGoalRuns,
           raceGoal: event.raceGoal,
+          city: event.city.trim(),
         );
       } catch (e) {
         await _repository.signOut();

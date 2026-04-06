@@ -92,12 +92,14 @@ class AuthRepository {
     required ActivityType activityType,
     required WeeklyGoalRuns weeklyGoalRuns,
     required RaceGoalOption raceGoal,
+    String city = '',
   }) {
     return _firestore.collection('users').doc(uid).set(
           _defaultUserDocument(
             uid: uid,
             name: name,
             email: email,
+            city: city,
             activityType: activityType,
             weeklyGoalRuns: weeklyGoalRuns,
             raceGoal: raceGoal,
@@ -110,15 +112,19 @@ class AuthRepository {
     required String uid,
     required String name,
     required String email,
+    String city = '',
     required ActivityType activityType,
     required WeeklyGoalRuns weeklyGoalRuns,
     required RaceGoalOption raceGoal,
   }) {
     final race = raceGoal.asFirestoreValue;
+    final nameLower = name.trim().toLowerCase();
     return {
       'uid': uid,
       'name': name,
+      'nameLower': nameLower,
       'email': email,
+      'city': city,
       'activityType': activityType.asFirestoreValue,
       'weeklyGoalRuns': weeklyGoalRuns.count,
       'raceGoal': race,
@@ -130,7 +136,23 @@ class AuthRepository {
       'longestStreakWeeks': 0,
       'weeklyRuns': <String>[],
       'friends': <String>[],
-      'badges': <String>[],
+      'badges': <Map<String, dynamic>>[],
+      'explorerCoinsLifetime': 0,
+      'elevationCoinsLifetime': 0,
+      'phantomGoldLifetime': 0,
+      'gatesCapturedLifetime': 0,
+      'streetbeatSessionsLifetime': 0,
+      'ghostBeatsLifetime': 0,
+      'earlyBirdRuns': 0,
+      'nightOwlRuns': 0,
+      'rainRuns': 0,
+      'neighborhoodCells': <String>[],
+      'uniqueStreetCells': <String>[],
+      'weeklyCoins': 0,
+      'weeklyCoinsWeekToken': '',
+      'weeklyDistanceMeters': 0,
+      'longestRunMeters': 0,
+      'mostCoinsSingleRun': 0,
     };
   }
 }

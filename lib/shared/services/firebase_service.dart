@@ -1,5 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 
+import '../../core/constants/firebase_config_check.dart';
+
 enum FirebaseInitResult {
   success,
   placeholder,
@@ -13,13 +15,7 @@ class FirebaseService {
     if (Firebase.apps.isEmpty) {
       return false;
     }
-    final options = Firebase.app().options;
-    final projectId = options.projectId.trim();
-    final apiKey = options.apiKey.trim();
-    if (projectId.isEmpty || apiKey.isEmpty) {
-      return false;
-    }
-    return true;
+    return areFirebaseOptionsConfigured(Firebase.app().options);
   }
 
   Future<FirebaseInitResult> initialize() async {
@@ -38,7 +34,7 @@ class FirebaseService {
 
     if (!isEffectivelyConfigured()) {
       lastFailureMessage ??=
-          'Firebase options look like a placeholder (empty project id or api key).';
+          'Firebase options look like a placeholder (empty or invalid project id, api key, or app id).';
       return FirebaseInitResult.placeholder;
     }
 
@@ -51,7 +47,7 @@ class FirebaseService {
     }
     if (!isEffectivelyConfigured()) {
       lastFailureMessage ??=
-          'Firebase options still look like a placeholder. Use hot restart after replacing native config files.';
+          'Firebase options still look invalid. Do a full restart after replacing google-services.json.';
       return FirebaseInitResult.placeholder;
     }
     return FirebaseInitResult.success;

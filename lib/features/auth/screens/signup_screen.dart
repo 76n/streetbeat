@@ -23,6 +23,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _city = TextEditingController();
   bool _obscure = true;
 
   ActivityType _activity = ActivityType.runner;
@@ -34,6 +35,7 @@ class _SignupScreenState extends State<SignupScreen> {
     _name.dispose();
     _email.dispose();
     _password.dispose();
+    _city.dispose();
     super.dispose();
   }
 
@@ -99,6 +101,17 @@ class _SignupScreenState extends State<SignupScreen> {
                         }
                         return null;
                       },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _city,
+                      textCapitalization: TextCapitalization.words,
+                      textInputAction: TextInputAction.next,
+                      style: const TextStyle(color: AppColors.textPrimary),
+                      decoration: const InputDecoration(
+                        labelText: 'City (optional)',
+                        hintText: 'e.g. Berlin',
+                      ),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -249,6 +262,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                             activityType: _activity,
                                             weeklyGoalRuns: _weekly,
                                             raceGoal: _race,
+                                            city: _city.text,
                                           ),
                                         );
                                   }

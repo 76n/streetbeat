@@ -50,6 +50,7 @@ class AuthSignUp extends AuthEvent {
     required this.activityType,
     required this.weeklyGoalRuns,
     required this.raceGoal,
+    this.city = '',
   });
 
   final String name;
@@ -58,6 +59,7 @@ class AuthSignUp extends AuthEvent {
   final ActivityType activityType;
   final WeeklyGoalRuns weeklyGoalRuns;
   final RaceGoalOption raceGoal;
+  final String city;
 
   @override
   List<Object?> get props => [
@@ -67,6 +69,7 @@ class AuthSignUp extends AuthEvent {
         activityType,
         weeklyGoalRuns,
         raceGoal,
+        city,
       ];
 }
 

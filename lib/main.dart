@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'core/di/service_locator.dart';
 import 'shared/services/firebase_service.dart';
+import 'core/constants/firebase_config_check.dart';
 import 'shared/widgets/app_loading_screen.dart';
-import 'shared/widgets/configure_firebase_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -80,7 +80,7 @@ class _StreetbeatBootstrapState extends State<_StreetbeatBootstrap> {
       return const AppLoadingScreen();
     }
     if (!_firebaseReady) {
-      return ConfigureFirebaseScreen(
+      return FirebaseConfigSetupScreen(
         details: _failureDetail,
         onRetry: _initFirebase,
       );

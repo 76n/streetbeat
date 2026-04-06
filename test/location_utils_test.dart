@@ -140,7 +140,8 @@ void main() {
         const LatLng(1, 0),
         const LatLng(0, 0),
       ];
-      expect(LocationUtils.pointInPolygon(const LatLng(0.5, 0.5), poly), isTrue);
+      expect(
+          LocationUtils.pointInPolygon(const LatLng(0.5, 0.5), poly), isTrue);
       expect(LocationUtils.pointInPolygon(const LatLng(2, 2), poly), isFalse);
     });
 
